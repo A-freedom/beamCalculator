@@ -3,23 +3,22 @@ import unittest
 from sympy import parse_expr
 import json
 
-x = smp.symbols('x', real=True)
-
 
 class MyTestCase(unittest.TestCase):
     def test_beam(self):
+        self.maxDiff = None
         with open("beam_test.json", "r") as read_file:
             testing_data = json.load(read_file)
             counter = 0
         for expect in testing_data['beams']:
             name = expect['name']
+            # if name != 'Singer & Andre Problem 419':
+            #     continue
             reactions = [Reaction(re[0], re[1]) for re in expect['reactions']]
             moments = [Moment(me[0], me[1]) for me in expect['moments']]
             loads = [Load(parse_expr(lo[0]), lo[1]) for lo in expect['loads']]
             l = expect['l']
             actual = Beam(loads, reactions, moments, l, name=name).jsonDetails()
-            if name == 'Singer & Andre Problem 404':
-                print()
             with self.subTest(name):
                 if not self.compareForces(expect['divided_loads'], actual['divided_loads']):
                     self.assertEqual(expect, actual)

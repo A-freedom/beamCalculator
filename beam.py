@@ -3,8 +3,7 @@ import sympy as smp
 import matplotlib.pyplot as plt
 from functools import reduce
 import json
-
-x = smp.symbols('x', real=True)
+from sympy.abc import x
 
 
 class Beam:
@@ -140,8 +139,8 @@ class Beam:
                 yy.append(bending_moment_fast[i](d))
         yy.append(yy[-1] + self.momentAt(self.l))
         xx = np.linspace(0, self.l, len(yy))
-        ax[1].stackplot(xx, yy,color='green',alpha=0.3)
-        ax[1].plot(xx, yy,color='green',linewidth=2.5)
+        ax[1].stackplot(xx, yy, color='green', alpha=0.3)
+        ax[1].plot(xx, yy, color='green', linewidth=2.5)
 
         ax[1].grid(visible=True, which='major', axis='both')
         ax[1].axhline(y=0, color='k')
