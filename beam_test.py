@@ -16,7 +16,7 @@ class MyTestCase(unittest.TestCase):
             #     continue
             reactions = [Reaction(re[0], re[1]) for re in expect['reactions']]
             moments = [Moment(me[0], me[1]) for me in expect['moments']]
-            loads = [Load(parse_expr(lo[0]), lo[1]) for lo in expect['loads']]
+            loads = [Fun(parse_expr(lo[0]), lo[1]) for lo in expect['loads']]
             l = expect['l']
             actual = Beam(loads, reactions, moments, l, name=name).jsonDetails()
             with self.subTest(name):
