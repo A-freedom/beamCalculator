@@ -3,6 +3,8 @@ import sympy as smp
 import matplotlib.pyplot as plt
 from functools import reduce
 import json
+
+from sympy import Eq
 from sympy.abc import x
 
 
@@ -22,7 +24,7 @@ class Beam:
         self.shear_stress = []
         self.bending_moment = []
         self.deflectionSlope = []
-        self.deflection = []
+        self.deflections = []
         self.loads = loads
         self.reactions = reactions
         self.moments = moments
@@ -93,8 +95,8 @@ class Beam:
             bending_moment.append(Fun(smp.expand(smp.integrate(i.force, x) + c), i.interval))
         self.bending_moment = bending_moment
 
-    def getFunctions(self, list):
-        return [smp.lambdify(x, exp.force) for exp in list]
+    def getFunctions(self, _list):
+        return [smp.lambdify(x, exp.force) for exp in _list]
 
     def printDetails(self):
         # print equations
@@ -107,7 +109,7 @@ class Beam:
         print("deflection slope ::")
         [print(i.interval, '-->', i.force) for i in self.deflectionSlope]
         print("deflection ::")
-        [print(i.interval, '-->', i.force) for i in self.deflection]
+        [print(i.interval, '-->', i.force) for i in self.deflections]
 
     def jsonDetails(self):
         data = {"name": self.name,
@@ -170,7 +172,7 @@ class Beam:
 
         # deflection
         yy = []
-        deflection_fast = self.getFunctions(self.deflection)
+        deflection_fast = self.getFunctions(self.deflections)
         for i in range(len(self.domains)):
             for d in np.linspace(0, self.domains[i][1] - self.domains[i][0],
                                  (self.domains[i][1] - self.domains[i][0]) * self.simple):
@@ -201,40 +203,63 @@ class Beam:
     def calculateDeflection(self):
         cost = smp.symbols('C1:{c}'.format(c=1 + len(self.bending_moment) * 2))
         counter = 0
-        _bending_moment = [Fun(i.force.replace(x, x - i.interval[0]), i.interval) for i in self.bending_moment]
-        for i in _bending_moment:
+        for i in self.bending_moment:
             self.deflectionSlope.append(Fun(smp.integrate(i.force, x) + cost[counter], i.interval))
             counter += 1
-
         for i in self.deflectionSlope:
-            self.deflection.append(Fun(smp.integrate(i.force, x) + cost[counter], i.interval))
+            self.deflections.append(Fun(smp.integrate(i.force, x) + cost[counter], i.interval))
             counter += 1
 
         equation = []
-        for i in self.supports:
-            if i.type == 'pin':
-                for d in self.deflection:
-                    if d.interval[0] == i.offset or d.interval[1] == i.offset:
-                        equation.append(smp.Eq(0, d.force.replace(x, i.offset)))
-            if i.type == 'fix':
-                for d in self.deflection:
-                    if d.interval[0] == i.offset or d.interval[1] == i.offset:
-                        equation.append(smp.Eq(0, d.force.replace(x, i.offset)))
-                for d in self.deflectionSlope:
-                    if d.interval[0] == i.offset or d.interval[1] == i.offset:
-                        equation.append(smp.Eq(0, d.force.replace(x, i.offset)))
-        for i in range(1, len(self.deflectionSlope)):
-            equation.append(smp.Eq(self.deflectionSlope[i - 1].force.replace(x, self.deflectionSlope[i].interval[0]),
-                                   self.deflectionSlope[i].force.replace(x, self.deflectionSlope[i].interval[0])))
-            equation.append(smp.Eq(self.deflection[i - 1].force.replace(x, self.deflection[i].interval[0]),
-                                   self.deflection[i].force.replace(x, self.deflection[i].interval[0])))
+        d_counter = 1
+        for support in self.supports:
+            if support.type == 'pin':
+                for deflection in self.deflections:
+                    if deflection.interval[0] == support.offset:
+                        eq = Eq(deflection.force.replace(x, 0), 0)
+                        print('d{c}(0) = 0 --> {eq} = 0'.format(c=d_counter, eq=eq.args[0]))
+                        d_counter += 1
+                        equation.append(eq)
+                    elif deflection.interval[1] == support.offset:
+                        eq = Eq(deflection.force.replace(x, deflection.interval[1] - deflection.interval[0]), 0)
+                        print('d{c}({d}) = 0 --> {eq1} = {eq2}'.format(c=d_counter, eq1=eq.args[0], eq2=eq.args[1],
+                                                                       d=deflection.interval[1] - deflection.interval[
+                                                                           0]))
+                        d_counter += 1
+                        equation.append(eq)
+        s_conter = 0
+        d_counter = 1
+        for i in range(1, len(self.deflections)):
+            nextDeflection = self.deflections[i]
+            deflection = self.deflections[i - 1]
+            nextSlop = self.deflections[i]
+            slop = self.deflections[i - 1]
+            eq = Eq(deflection.force.replace(x, deflection.interval[1] - deflection.interval[0]),
+                    nextDeflection.force.replace(x, 0))
+            print('d{c}({d}) = d{cp}(0) --> {eq1} = {eq2}'.format(c=d_counter, eq1=eq.args[0], eq2=eq.args[1],
+                                                                  cp=d_counter + 1,
+                                                                  d=deflection.interval[1] - deflection.interval[
+                                                                      0]))
+            equation.append(eq)
+            eq = Eq(slop.force.replace(x, slop.interval[1] - slop.interval[0]),
+                    nextSlop.force.replace(x, 0))
+            print('s{c}({d}) = s{cp}(0) --> {eq1} = {eq2}'.format(c=d_counter, eq1=eq.args[0], eq2=eq.args[1],
+                                                                  cp=d_counter + 1,
+                                                                  d=deflection.interval[1] - deflection.interval[
+                                                                      0]))
+            d_counter += 1
+            equation.append(eq)
 
         solve = smp.solve(equation, cost)
         self.deflectionSlope = [
             Fun((1 / (self.I * self.E)) * i.force.subs(solve).replace(x, x + i.interval[0]), i.interval) for i in
             self.deflectionSlope]
-        self.deflection = [Fun((1 / (self.I * self.E)) * i.force.subs(solve).replace(x, x + i.interval[0]), i.interval)
-                           for i in self.deflection]
+        self.deflections = [Fun((1 / (self.I * self.E)) * i.force.subs(solve).replace(x, x + i.interval[0]), i.interval)
+                            for i in self.deflections]
+
+        # self.deflections = [ for i in self.deflections]
+        for i in self.deflections:
+            print(i.force)
 
 
 class Fun:
