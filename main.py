@@ -17,14 +17,14 @@ def run_all():
 if __name__ == '__main__':
     _name = "deflection ex 6"
     _length = 5
-    _supports = [Support('pin', 0), Support('pin', 5)]
+    _supports = [Support('pin', 1), Support('pin', 4)]
     _load = [Fun(12, [1, 4])]
-    _reaction = [Reaction(18, 0), Reaction(18, 5)]
+    _reaction = [Reaction(18, 1), Reaction(18, 4)]
     _moments = []
     beam = Beam(_load, _reaction, _moments, _length, name=_name, supports=_supports, E=200E9, I=3500E-8)
     beam.printDetails()
 
-    print('the maximum deflection::',beam.deflection[1].force.evalf(subs={x:1.5}))
+    # print('the maximum deflection::',beam.deflection[0].force.evalf(subs={x:1.5}))
     beam.displayPlots()
 
     # user_input = input('do you want to save the beams to the test subjects?\ntype "save it" ::')

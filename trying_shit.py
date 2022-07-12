@@ -1,17 +1,22 @@
-from beam import *
-from sympy.parsing.sympy_parser import parse_expr
+from sympy import SingularityFunction, Abs, integrate
+from sympy.abc import x
 
-x = smp.symbols('x', real=True)
-import json
+
+class Singularity:
+    def __init__(self, ex, a):
+        self.a = a
+        self.ex = ex
+
+    def evalf(self, X):
+        if X - self.a >= 0:
+            return self.ex.evalf(subs={x: X - self.a})
+        return 0
+
+    def getIntegrate(self):
+        return Singularity(integrate(self.ex, x), self.a)
+
 
 if __name__ == '__main__':
-    with open("beam_test.json", "r") as read_file:
-        x = json.load(read_file)
-    for i in x.get('beams'):
-        reactions = [Reaction(re[0], re[1]) for re in i.get('reactions')]
-        moments = [Moment(me[0], me[1]) for me in i.get('moments')]
-        loads = [Fun(parse_expr(lo[0]), lo[1]) for lo in i.get('loads')]
-        l = i.get('l')
-        beam = Beam(loads, reactions, moments, l)
-        print(beam.jsonDetails())
-        act = json.loads(beam.jsonDetails())
+    f = Singularity(10 - x, 2)
+    for i in range(-5, 5):
+        print(i, '-->', f.evalf(i))
