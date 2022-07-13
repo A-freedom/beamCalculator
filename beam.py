@@ -35,7 +35,7 @@ class Beam:
         self.setDivided_loads()
         self.calculateShearForce()
         self.calculateBendingMoment()
-        # self.calculateDeflection()
+        self.calculateDeflection()
 
     def setDomains(self):
         intervals_list = [0, self.l]
@@ -109,9 +109,9 @@ class Beam:
         print("bending moment equations ::")
         [print(i.interval, '-->', i.force) for i in self.bending_moment]
         print("deflection slope ::")
-        # [print(i.interval, '-->', i.force) for i in self.deflectionSlope]
-        # print("deflection ::")
-        # [print(i.interval, '-->', i.force) for i in self.deflections]
+        [print(i.interval, '-->', i.force) for i in self.deflectionSlope]
+        print("deflection ::")
+        [print(i.interval, '-->', i.force) for i in self.deflections]
 
     def jsonDetails(self):
         data = {"name": self.name,
@@ -137,8 +137,8 @@ class Beam:
                 yy.append(shear_stress_fast[i](d))
         yy.append(yy[-1] + self.reactionsAt(self.l))
         xx = np.linspace(0, self.l, len(yy))
-        ax[0].stackplot(xx, yy, color='blue', alpha=0.3)
-        ax[0].plot(xx, yy, color='blue', linewidth=2.5)
+        ax[0].stackplot(xx, yy, color='#4D4DFF', alpha=0.3)
+        ax[0].plot(xx, yy, color='#4D4DFF', linewidth=2)
         ax[0].grid(visible=True, which='major', axis='both')
         ax[0].axhline(y=0, color='k')
         ax[0].set_title("shear stress")
@@ -152,43 +152,39 @@ class Beam:
                 yy.append(bending_moment_fast[i](d))
         yy.append(yy[-1] + self.momentAt(self.l))
         xx = np.linspace(0, self.l, len(yy))
-        ax[1].stackplot(xx, yy, color='green', alpha=0.3)
-        ax[1].plot(xx, yy, color='green', linewidth=2.5)
+        ax[1].stackplot(xx, yy, color='#D22730', alpha=0.3)
+        ax[1].plot(xx, yy, color='#D22730', linewidth=2)
         ax[1].grid(visible=True, which='major', axis='both')
         ax[1].axhline(y=0, color='k')
         ax[1].set_title("bending moment")
 
         # deflection slope
-        xx = np.linspace(0, self.l, 1000)
-
-        def slopAt(value):
-            out = self.C1
-            for defl in self.deflectionSlope:
-                out += defl.evalf(value)
-            return out
-        yy = [slopAt(i) for i in xx]
-
-        # ax[2].stackplot(xx, yy, color='green', alpha=0.3)
-        ax[2].plot(xx, yy, color='green', linewidth=2.5)
+        yy = []
+        slop_fast = self.getFunctions(self.deflectionSlope)
+        for i in range(len(self.domains)):
+            for d in np.linspace(0, self.domains[i][1] - self.domains[i][0],
+                                 (self.domains[i][1] - self.domains[i][0]) * self.simple):
+                yy.append(slop_fast[i](d))
+        xx = np.linspace(0, self.l, len(yy))
+        ax[2].stackplot(xx, yy, color='#FFAD00', alpha=0.3)
+        ax[2].plot(xx, yy, color='#FFAD00', linewidth=2)
         ax[2].grid(visible=True, which='major', axis='both')
         ax[2].axhline(y=0, color='k')
-        ax[2].set_title("deflection slope")
+        ax[2].set_title("deflection slop")
 
-        # # deflection
-        def deflectionAt(d):
-            out = self.C2 + d * self.C1
-            for i in self.deflections:
-                out += i.evalf(d)
-            return out
-        xx = np.linspace(0, self.l, 1000)
-
-        yy = [deflectionAt(i) for i in xx]
-
-        # ax[3].stackplot(xx, yy, color='green', alpha=0.3)
-        ax[3].plot(xx,yy, color='green', linewidth=2.5)
+        # deflection
+        yy = []
+        deflections_fast = self.getFunctions(self.deflections)
+        for i in range(len(self.domains)):
+            for d in np.linspace(0, self.domains[i][1] - self.domains[i][0],
+                                 (self.domains[i][1] - self.domains[i][0]) * self.simple):
+                yy.append(deflections_fast[i](d))
+        xx = np.linspace(0, self.l, len(yy))
+        ax[3].stackplot(xx, yy, color='green', alpha=0.3)
+        ax[3].plot(xx, yy, color='green', linewidth=2)
         ax[3].grid(visible=True, which='major', axis='both')
         ax[3].axhline(y=0, color='k')
-        ax[3].set_title("deflection")
+        ax[3].set_title("deflecting")
         # show all
         plt.show()
 
@@ -207,42 +203,46 @@ class Beam:
         write_json(self.jsonDetails())
 
     def calculateDeflection(self):
-        sub_moments = []
-        for f in self.divided_loads:
-            if f.force == 0: continue
-            a = f.interval[0]
-            b = f.interval[1]
-            A = integrate(-f.force, (x, a, x))
-            Aa = integrate(-f.force * x, (x, a, x))
-            M = x * A - Aa
-            sub_moments.append(Singularity(M, a))
-            if b != self.l:
-                A = integrate(f.force, (x, b, x))
-                Aa = integrate(f.force * x, (x, b, x))
-                M = x * A - Aa
-                sub_moments.append(Singularity(M, b))
+        cost = smp.symbols('C1:{c}'.format(c=1 + len(self.bending_moment) * 2))
+        counter = 0
+        for i in self.bending_moment:
+            self.deflectionSlope.append(Fun(smp.integrate(i.force, x) + cost[counter], i.interval))
+            counter += 1
 
-        for r in self.reactions:
-            sub_moments.append(Singularity(-r.force * (x - r.offset), r.offset))
+        for i in self.deflectionSlope:
+            self.deflections.append(Fun(smp.integrate(i.force, x) + cost[counter], i.interval))
+            counter += 1
 
-        # I should support moments too
+        equation = []
+        for i in self.supports:
+            if i.type == 'pin':
+                for d in self.deflections:
+                    if d.interval[0] == i.offset:
+                        equation.append(smp.Eq(0, d.force.replace(x, 0)))
+                if self.deflections[-1].interval[1] == i.offset:
+                    equation.append(smp.Eq(0, self.deflections[-1].force.replace(x, self.deflections[-1].interval[1] -
+                                                                                 self.deflections[-1].interval[0])))
+            elif i.type == 'fix':
+                for d in self.deflections:
+                    if d.interval[0] == i.offset or d.interval[1] == i.offset:
+                        equation.append(smp.Eq(0, d.force.replace(x, i.offset)))
+                for d in self.deflectionSlope:
+                    if d.interval[0] == i.offset or d.interval[1] == i.offset:
+                        equation.append(smp.Eq(0, d.force.replace(x, i.offset)))
+        for i in range(1, len(self.deflectionSlope)):
+            d = self.deflectionSlope[i].interval[1] - self.deflectionSlope[i].interval[0]
+            equation.append(smp.Eq(self.deflectionSlope[i - 1].force.replace(x, d),
+                                   self.deflectionSlope[i].force.replace(x, 0)))
+            equation.append(smp.Eq(self.deflections[i - 1].force.replace(x, d),
+                                   self.deflections[i].force.replace(x, 0)))
 
-        sub_slop = [i.getIntegrate() for i in sub_moments]
-        sub_deflection = [i.getIntegrate() for i in sub_slop]
-
-        cc = symbols('C1:3')
-        equations = []
-        for support in self.supports:
-            if support.type == 'pin':
-                _eval = cc[1] + support.offset * cc[0]
-                for s_d in sub_deflection:
-                    _eval += s_d.evalf(support.offset)
-                equations.append(Eq(_eval, 0))
-        solve = smp.solve(equations, cc)
-        self.C1 = solve[cc[0]]
-        self.C2 = solve[cc[1]]
-        self.deflectionSlope = sub_slop
-        self.deflections = sub_deflection
+        solve = smp.solve(equation, cost)
+        print(solve)
+        # self.deflectionSlope = [
+        #     Fun(i.force.subs(solve), i.interval) for i in
+        #     self.deflectionSlope]
+        # self.deflections = [Fun(i.force.subs(solve), i.interval)
+        #                     for i in self.deflections]
 
 
 class Singularity:
