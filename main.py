@@ -13,7 +13,7 @@ if __name__ == '__main__':
     _beam = Beam(_loads, _reactions, _moments, _length, name=_name, supports=_supports, E=1, I=1)
     print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
     _beam.printDetails()
-    # _beam.displayPlots()
+    _beam.displayPlots()
 
     # user_input = input('do you want to save the beams to the test subjects?\ntype "save it" ::')
     # if user_input == "save it":

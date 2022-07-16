@@ -230,7 +230,7 @@ class Beam:
                     if d.interval[0] == i.offset or d.interval[1] == i.offset:
                         equation.append(smp.Eq(0, d.force.replace(x, i.offset)))
         for i in range(1, len(self.deflectionSlope)):
-            d = self.deflectionSlope[i].interval[1] - self.deflectionSlope[i].interval[0]
+            d = self.deflectionSlope[i-1].interval[1] - self.deflectionSlope[i-1].interval[0]
             equation.append(smp.Eq(self.deflectionSlope[i - 1].force.replace(x, d),
                                    self.deflectionSlope[i].force.replace(x, 0)))
             equation.append(smp.Eq(self.deflections[i - 1].force.replace(x, d),
@@ -238,11 +238,11 @@ class Beam:
 
         solve = smp.solve(equation, cost)
         print(solve)
-        # self.deflectionSlope = [
-        #     Fun(i.force.subs(solve), i.interval) for i in
-        #     self.deflectionSlope]
-        # self.deflections = [Fun(i.force.subs(solve), i.interval)
-        #                     for i in self.deflections]
+        self.deflectionSlope = [
+            Fun(i.force.subs(solve), i.interval) for i in
+            self.deflectionSlope]
+        self.deflections = [Fun(i.force.subs(solve), i.interval)
+                            for i in self.deflections]
 
 
 class Singularity:
