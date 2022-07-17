@@ -5,8 +5,8 @@ if __name__ == '__main__':
     #     testing_data = json.load(read_file)
     # for expect in testing_data['beams']:
     _name = 'expect[]'
-    _supports = [Support('pin', 0), Support('pin', 6)]
-    _reactions = [Reaction(50, 0), Reaction(50, 6),Reaction(-20,2)]
+    _supports = [Support('fix', 0)]
+    _reactions = [Reaction(-20, 2)]
     _moments = []
     _loads = [Fun(10, [0, 2]), Fun(15, [2, 6])]
     _length = 6

@@ -33,6 +33,7 @@ class Beam:
         self.l = l
         self.setDomains()
         self.setDivided_loads()
+        self.calculateReactions()
         self.calculateShearForce()
         self.calculateBendingMoment()
         self.calculateDeflection()
@@ -62,6 +63,48 @@ class Beam:
                 if not (a1 >= b2 or b1 >= a2):
                     tem_load.append(- lo.force.subs(x, x + b1 - a1))
             self.divided_loads.append(Fun(reduce(lambda a, b: a + b, tem_load), domain))
+
+    def calculateReactions(self):
+        equations = []
+        anonP = ()
+        anonM = ()
+        Cm = 1
+        Cp = 1
+        for i in self.supports:
+            symbol = symbols('P{c}'.format(c=Cp))
+            self.reactions.append(Reaction(symbol, i.offset))
+            anonP += (symbol,)
+            Cp += 1
+            if i.type == 'fix':
+                symbol = symbols('M{c}'.format(c=Cm))
+                self.moments.append(Moment(symbol, i.offset))
+                anonM = (symbol,)
+                Cm += 1
+
+        for g in self.supports:
+            summation = Abs(0)
+            for i in self.moments:
+                summation += -i.force
+            for i in self.reactions:
+                summation += i.force * (g.offset - i.offset)
+            for i in self.loads:
+                a = i.interval[0]
+                b = i.interval[1]
+                A = integrate(-i.force, (x, a, b))
+                Ax = integrate(-i.force * x, (x, a, b))
+                M = A * g.offset - Ax
+                summation += M
+            equations.append(Eq(summation, 0))
+        summationOfy = Abs(0)
+        for i in self.loads:
+            summationOfy += integrate(-i.force, (x, i.interval[0], i.interval[1]))
+        for i in self.reactions:
+            summationOfy += i.force
+        equations.append(Eq(summationOfy, 0))
+        solve = smp.solve(equations, anonP + anonM)
+        print(solve)
+        self.reactions = [Reaction(i.force.subs(solve), i.offset) for i in self.reactions]
+        self.moments = [Moment(i.force.subs(solve), i.offset) for i in self.moments]
 
     def reactionsAt(self, offset):
         re_ls = [0]
@@ -102,6 +145,10 @@ class Beam:
 
     def printDetails(self):
         # print equations
+        print("reactions ::")
+        [print(i.offset, '-->', i.force) for i in self.reactions]
+        print("moments ::")
+        [print(i.offset, '-->', i.force) for i in self.moments]
         print("divided loads ::")
         [print(i.interval, '-->', i.force) for i in self.divided_loads]
         print("shear stress equations ::")
@@ -135,7 +182,7 @@ class Beam:
             for d in np.linspace(0, self.domains[i][1] - self.domains[i][0],
                                  (self.domains[i][1] - self.domains[i][0]) * self.simple):
                 yy.append(shear_stress_fast[i](d))
-        yy.append(yy[-1] + self.reactionsAt(self.l))
+        yy.append(yy[-1] + self.reactionsAt(self.l).__float__())
         xx = np.linspace(0, self.l, len(yy))
         ax[0].stackplot(xx, yy, color='#4D4DFF', alpha=0.3)
         ax[0].plot(xx, yy, color='#4D4DFF', linewidth=2)
@@ -150,7 +197,7 @@ class Beam:
             for d in np.linspace(0, self.domains[i][1] - self.domains[i][0],
                                  (self.domains[i][1] - self.domains[i][0]) * self.simple):
                 yy.append(bending_moment_fast[i](d))
-        yy.append(yy[-1] + self.momentAt(self.l))
+        yy.append(yy[-1] + self.momentAt(self.l).__float__())
         xx = np.linspace(0, self.l, len(yy))
         ax[1].stackplot(xx, yy, color='#D22730', alpha=0.3)
         ax[1].plot(xx, yy, color='#D22730', linewidth=2)
@@ -230,7 +277,7 @@ class Beam:
                     if d.interval[0] == i.offset or d.interval[1] == i.offset:
                         equation.append(smp.Eq(0, d.force.replace(x, i.offset)))
         for i in range(1, len(self.deflectionSlope)):
-            d = self.deflectionSlope[i-1].interval[1] - self.deflectionSlope[i-1].interval[0]
+            d = self.deflectionSlope[i - 1].interval[1] - self.deflectionSlope[i - 1].interval[0]
             equation.append(smp.Eq(self.deflectionSlope[i - 1].force.replace(x, d),
                                    self.deflectionSlope[i].force.replace(x, 0)))
             equation.append(smp.Eq(self.deflections[i - 1].force.replace(x, d),
@@ -245,20 +292,6 @@ class Beam:
                             for i in self.deflections]
 
 
-class Singularity:
-    def __init__(self, ex, a):
-        self.a = a
-        self.ex = ex
-
-    def evalf(self, value):
-        if value - self.a >= 0:
-            return self.ex.evalf(subs={x: value})
-        return 0
-
-    def getIntegrate(self):
-        return Singularity(integrate(self.ex, x), self.a)
-
-
 class Fun:
     def __init__(self, load, interval):
         self.force = (smp.Abs(0) + load)
@@ -267,17 +300,17 @@ class Fun:
 
 class Moment:
     def __init__(self, force, offset):
-        self.force = force
+        self.force = force + Abs(0)
         self.offset = offset
 
 
 class Reaction:
     def __init__(self, force, offset):
-        self.force = force
+        self.force = force + Abs(0)
         self.offset = offset
 
 
 class Support:
     def __init__(self, _type, offset):
         self.type = _type
-        self.offset = offset
+        self.offset = offset + Abs(0)
