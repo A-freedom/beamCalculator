@@ -84,7 +84,7 @@ class Beam:
         for g in self.supports:
             summation = Abs(0)
             for i in self.moments:
-                summation += -i.force
+                summation += i.force
             for i in self.reactions:
                 summation += i.force * (g.offset - i.offset)
             for i in self.loads:
