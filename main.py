@@ -5,12 +5,12 @@ if __name__ == '__main__':
     #     testing_data = json.load(read_file)
     # for expect in testing_data['beams']:
     _name = 'expect[]'
-    _supports = [Support('fix', 10)]
-    _reactions = []
+    _supports = [Support('pin', 0), Support('pin', 6)]
+    _reactions = [PointedLoad(-20,2)]
     _moments = []
-    _loads = [Fun(10, [0, 10])]
-    _length = 10
-    _beam = Beam(_loads, _reactions, _moments, _length, name=_name, supports=_supports, E=1, I=1)
+    _loads = [DistributedLoad(0, 2, 10, 10),DistributedLoad(2, 6, 15, 15)]
+    _length = 6
+    _beam = Beam(_loads, _reactions, _moments, _length, name=_name, supports=_supports, I=6660000, E=200)
     print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
     _beam.printDetails()
     _beam.displayPlots()
