@@ -1,5 +1,8 @@
 import numpy as np
-import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
+
+from plotly.subplots import make_subplots
 from functools import reduce
 import json
 from sympy import Eq, integrate, symbols, Abs, expand, solve, lambdify, diff
@@ -178,8 +181,39 @@ class Beam:
         return data
 
     def displayPlots(self):
-        plt.style.use('fast')
-        fig, ax = plt.subplots(1, 4, num=self.name)
+        def plot(row, col, color, name):
+            fig.add_trace(
+                go.Scatter(
+                    x=xx,
+                    y=yy,
+                    fill='tonexty',
+                    mode='lines',
+                    name=name,
+                    line_color=color,
+                    line=dict(width=3)),
+                row=row, col=col
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=[0, self.l],
+                    y=[0, 0],
+                    fill='tonexty',
+                    mode='lines',
+                    line_color=color,
+                    line=dict(width=3)),
+                row=row, col=col
+            )
+
+        fig = make_subplots(
+            subplot_titles=("SHEAR STRESS", "BENDING MOMENTS", "THE SLOP", "DEFLECTIONS"),
+            rows=2, cols=2,
+            # shared_xaxes=True,
+            print_grid=True,
+            # column_widths=[200],
+            # row_heights=[200]*4,
+            vertical_spacing=0.03,
+            # specs=[[{"type": "scatter"},{"type": "scatter"}],[{"type": "scatter"},{"type": "scatter"}]]
+        )
         # shear
         yy = [0]
         shear_stress_fast = self.getFunctions(self.shear_stress)
@@ -189,11 +223,7 @@ class Beam:
                 yy.append(shear_stress_fast[i](d))
         yy.append(yy[-1] + self.reactionsAt(self.l).__float__())
         xx = np.linspace(0, self.l, len(yy))
-        ax[0].stackplot(xx, yy, color='#4D4DFF', alpha=0.3)
-        ax[0].plot(xx, yy, color='#4D4DFF', linewidth=2)
-        ax[0].grid(visible=True, which='major', axis='both')
-        ax[0].axhline(y=0, color='k')
-        ax[0].set_title("shear stress")
+        plot(1, 1, '#4D4DFF', 'shear stress')
 
         # bending
         yy = [0]
@@ -204,11 +234,8 @@ class Beam:
                 yy.append(bending_moment_fast[i](d))
         yy.append(yy[-1] + self.momentAt(self.l).__float__())
         xx = np.linspace(0, self.l, len(yy))
-        ax[1].stackplot(xx, yy, color='#D22730', alpha=0.3)
-        ax[1].plot(xx, yy, color='#D22730', linewidth=2)
-        ax[1].grid(visible=True, which='major', axis='both')
-        ax[1].axhline(y=0, color='k')
-        ax[1].set_title("bending moment")
+        plot(1, 2, '#D22730', 'bending moments')
+
 
         # deflection slope
         yy = []
@@ -218,11 +245,7 @@ class Beam:
                                  int((self.domains[i][1] - self.domains[i][0]) * self.simple)):
                 yy.append(slop_fast[i](d))
         xx = np.linspace(0, self.l, len(yy))
-        ax[2].stackplot(xx, yy, color='#FFAD00', alpha=0.3)
-        ax[2].plot(xx, yy, color='#FFAD00', linewidth=2)
-        ax[2].grid(visible=True, which='major', axis='both')
-        ax[2].axhline(y=0, color='k')
-        ax[2].set_title("deflection slop")
+        plot(2, 1, '#FFAD00', 'deflection slop')
 
         # deflection
         yy = []
@@ -232,13 +255,14 @@ class Beam:
                                  int((self.domains[i][1] - self.domains[i][0]) * self.simple)):
                 yy.append(deflections_fast[i](d))
         xx = np.linspace(0, self.l, len(yy))
-        ax[3].stackplot(xx, yy, color='green', alpha=0.3)
-        ax[3].plot(xx, yy, color='green', linewidth=2)
-        ax[3].grid(visible=True, which='major', axis='both')
-        ax[3].axhline(y=0, color='k')
-        ax[3].set_title("deflecting")
-        # show all
-        plt.show()
+        plot(2, 2, 'green', 'deflection')
+
+        fig.update_layout(
+            showlegend=False,
+            title_text="BEAM TEST",
+            template='plotly_white'
+        )
+        fig.show()
 
     def save(self):
         def write_json(new_data, filename='beam_test.json'):
