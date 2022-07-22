@@ -1,11 +1,11 @@
 import numpy as np
 import plotly.graph_objects as go
-
 from plotly.subplots import make_subplots
 from functools import reduce
 import json
 from sympy import Eq, integrate, symbols, Abs, expand, solve, lambdify, diff
 from sympy.abc import x
+from reformat import reformat
 
 
 class Beam:
@@ -144,20 +144,19 @@ class Beam:
         return [lambdify(x, exp.force) for exp in _list]
 
     def printDetails(self):
-        def export(eq):
+        def export(eq, mxmi=False):
             for i in eq:
                 ex = self.findMixAndMin(i.force, i.interval)
-                print(i.interval, '-->', i.force, )
-                print('maximum = ', ex[0].y, ', at x = ', ex[0].x)
-                print('minimum = ', ex[1].y, ', at x = ', ex[1].x)
+                print(' ', i.interval, '-->', reformat(i.force))
+                print('     maximum = ', reformat(ex[0].y), ', at x = ',  reformat(ex[1].x))
+                print('     minimum = ', reformat(ex[1].y), ', at x = ',  reformat(ex[1].x))
 
-        # print equations
         print("reactions ::")
-        [print(i.offset, '-->', i.force) for i in self.reactions]
+        [print(' ', i.offset, '-->', reformat(i.force)) for i in self.reactions]
         print("moments ::")
-        [print(i.offset, '-->', i.force) for i in self.moments]
+        [print(' ', i.offset, '-->', reformat(i.force)) for i in self.moments]
         print("divided loads ::")
-        [print(i.interval, '-->', i.force) for i in self.divided_loads]
+        [print(' ', i.interval, '-->', i.force) for i in self.divided_loads]
         print("shear stress equations ::")
         export(self.shear_stress)
         print("bending moment equations ::")
@@ -208,9 +207,9 @@ class Beam:
             rows=2, cols=2,
             # shared_xaxes=True,
             print_grid=True,
-            # column_widths=[200],
-            # row_heights=[200]*4,
-            vertical_spacing=0.03,
+            column_widths=[200] * 2,
+            row_heights=[200] * 2,
+            vertical_spacing=0.1,
             # specs=[[{"type": "scatter"},{"type": "scatter"}],[{"type": "scatter"},{"type": "scatter"}]]
         )
         # shear
@@ -234,7 +233,6 @@ class Beam:
         yy.append(yy[-1] + self.momentAt(self.l).__float__())
         xx = np.linspace(0, self.l, len(yy))
         plot(1, 2, '#D22730', 'bending moments')
-
 
         # deflection slope
         yy = []
@@ -316,7 +314,7 @@ class Beam:
                                self.deflections[i].force.replace(x, 0)))
 
         _solve = solve(equation, cost)
-        print(_solve)
+        print(reformat(_solve))
         self.deflectionSlope = [
             RawLoad(i.force.subs(_solve) / (self.I * self.E), i.interval) for i in
             self.deflectionSlope]
